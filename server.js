@@ -1,7 +1,6 @@
 'use strict';
 
 require('dotenv').config();
-const weatherData = require('./data/weather.json')
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
@@ -9,42 +8,75 @@ const cors = require('cors');
 
 const server = express();
 const PORT = process.env.PORT;
-
 server.use(cors());
 
-// http://localhost:3001/weather?cityName=amman&lat=31.95&lon=35.91
+// http://localhost:3001/weather?city=amman
+server.get('/weather', getWeatherData);
+server.get('/movie', getMovieData);
 
-server.get('/weather', (req, res) => {
-    let cityName = req.query.cityName
-    // let lat = req.query.lat
-    // let lon = req.query.lon
 
-    let weatherItem = weatherData.find(item => {
-        // if (cityName == item.city_name.toLowerCase() && lat == item.lat && lon == item.lon)
-        //     return item;
-        if (cityName.toLowerCase() == item.city_name.toLowerCase())
-            return item;
-    });
-    // res.send(weatherItem);
-    try {
-        let forcastArr = weatherItem.data.map(item => {
-            return new Forcast(item);
+
+// for weather data 
+ function getWeatherData(req, res) {
+    let city = req.query.city;
+    let key = process.env.WEATHER_API_KEY;
+    let url = `https://api.weatherbit.io/v2.0/forecast/daily?city=${city}&key=${key}`;
+
+    axios
+    .get(url)
+    .then(result => {
+        let weatherArray = result.data.data.map(item => {
+            return new Weather(item);
         });
-        res.send(forcastArr);
+        res.send(weatherArray);
+    })
+    .catch(error => {
+        res.status(500).send(`Data for this city is not found`);
+    })
+};
 
-    } catch (error) {
-        res.status(500).send('the data for this city not found');
-    };
-});
 
-class Forcast {
-    constructor(item) {
-        this.description = item.weather.description;
-        this.date = item.valid_date;
+// for movie data 
+//https://api.themoviedb.org/3/search/movie?api_key=<<api_key>>&query=amman
+function getMovieData(req,res){
+    let movieQuery = req.query.movie;
+    let movieKey = process.env.MOVIES_API_KEY;
+    let movieUrl = `https://api.themoviedb.org/3/search/movie?api_key=${movieKey}&query=${movieQuery}`;
+
+    axios 
+    .get(movieUrl)
+    .then(result=>{
+        let movieArray = result.data.results.map(item=>{
+            return new Movie(item);
+        })
+        res.send(movieArray);
+    })
+    .catch(error=>{
+        res.send('The movies data for this city is not found')
+    });
+};
+
+
+class Movie{
+    constructor(item){
+        this.title = item.original_title;
+        this.overview = item.overview;
+        this.average_votes = item.vote_averag;
+        this.total_votes = item.vote_count;
+        this.image_url =`https://image.tmdb.org/t/p/w500${item.poster_path}`;
+        this.popularity= item.popularity;
+        this.released_on = item.release_date;
     }
 };
 
 
+
+class Weather {
+    constructor(item) {
+        this.date = item.valid_date;
+        this.description = item.weather.description;
+    };
+};
 
 server.get('/', (req, res) => {
     let str = 'hello from backend';
